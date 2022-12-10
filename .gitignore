@@ -1,2 +1,4 @@
 .vscode
 *.txt
+/sol_kafka/consumer
+/sol_kafka/producer
