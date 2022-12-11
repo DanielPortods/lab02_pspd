@@ -42,6 +42,11 @@ int main (int argc, char **argv) {
     // Install a delivery-error callback.
     rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
+    if (rd_kafka_conf_set(conf, "partitioner", "random", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK){
+            g_error("%s", errstr);
+            return 1;
+    }
+
     // Create the Producer instance.
     producer = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
     if (!producer) {
@@ -90,22 +95,22 @@ int main (int argc, char **argv) {
 
     // Define o tamanho total do arquivo
     fseek(names, 0, SEEK_END);
-    int file_size = ftell(names);
+    unsigned long long int file_size = ftell(names);
     fseek(names, 0, SEEK_SET);
 
     struct timeval total_ini, total_end;
-    int n = 0, n_l_six = 0, n_g_six = 0, pos_ant = 0;
+    unsigned long long int n = 0, n_l_six = 0, n_g_six = 0, pos_ant = 0;
 
     const char *topic = "names-count";
     const char *key =  "msg";
 
     gettimeofday(&total_ini, NULL);
-    for (int i = 0; i < message_count; i++) {
+    for (unsigned long long int i = 0; i < message_count; i++) {
 
         //Divide o arquivo conforme a quantidade de msgs
         // TO DO: resolver o problema do lixo de memória em msg vazias
         
-        int relative_pos = pos_ant + file_size/message_count;
+        unsigned long long int relative_pos = pos_ant + file_size/message_count;
 
         relative_pos = (relative_pos > file_size) ? file_size : relative_pos;
 
@@ -117,13 +122,13 @@ int main (int argc, char **argv) {
             relative_pos+=k;
         }        
 
-        int buffer_size = relative_pos - pos_ant;
+        unsigned long long int buffer_size = relative_pos - pos_ant;
 
         char *buffer = malloc(buffer_size + 1);
 
         fseek(names, pos_ant, SEEK_SET);
 
-        for(int j = 0; j < buffer_size; j++){
+        for(unsigned long long int j = 0; j < buffer_size; j++){
             buffer[j] = fgetc(names);
         }
 
@@ -131,7 +136,7 @@ int main (int argc, char **argv) {
         
         pos_ant = ftell(names) + 1;
 
-        g_message("msg: '%s'", buffer);
+        //g_message("msg: '%s'", buffer);
 
         rd_kafka_resp_err_t err;      
         err = rd_kafka_producev(producer,
@@ -146,7 +151,7 @@ int main (int argc, char **argv) {
             g_error("Failed to produce to topic %s: %s", topic, rd_kafka_err2str(err));
             return 1;
         } else {
-            g_message("Produced event to topic %s: mensage %d sent!", topic, i+1);
+            g_message("Produced event to topic %s: mensage %llu sent!", topic, i+1);
         }
 
         rd_kafka_poll(producer, 0);
@@ -207,7 +212,7 @@ int main (int argc, char **argv) {
 
     double duration = calc_time(total_ini.tv_sec, total_end.tv_sec, total_ini.tv_usec, total_end.tv_usec);
 
-    g_message("[%.8lf s] Total de %d palavras: %d menores de 6 bytes e %d entre 6 e 10 bytes", duration, n, n_l_six, n_g_six);
+    g_message("[%.8lf s] Total de %llu palavras: %llu menores de 6 bytes e %llu entre 6 e 10 bytes", duration, n, n_l_six, n_g_six);
 
     return 0;
 }

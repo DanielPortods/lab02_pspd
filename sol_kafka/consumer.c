@@ -108,12 +108,12 @@ int main (int argc, char **argv) {
             g_message("Consumed event from topic %s: counting...", rd_kafka_topic_name(consumer_message->rkt));
 
             char *buffer = (char*) consumer_message->payload;
-            g_message("msg: '%s'", buffer);
+            //g_message("msg: '%s'", buffer);
             
-            int pos_ant = 0;
-            for(int i=0; i<=strlen(buffer); i++){
+            unsigned long long int pos_ant = 0;
+            for(unsigned long long int i=0; i<=strlen(buffer); i++){
                 if(buffer[i] == ' ' || buffer[i] == '\0'){
-                    int size_w = i - pos_ant - 1;    
+                    unsigned long long int size_w = i - pos_ant - 1;    
 
                     if(!size_w){
                         pos_ant = i+1;
