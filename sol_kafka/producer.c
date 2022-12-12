@@ -1,8 +1,11 @@
 #include "common.c"
 #include <unistd.h>
 #include <sys/time.h>
+#include <math.h>
 
 #define ARR_SIZE(arr) ( sizeof((arr)) / sizeof((arr[0])) )
+
+#define MSG_LIMIT 50000
 
 double calc_time(__time_t sec_ini, __time_t sec_end, __suseconds_t usec_ini, __suseconds_t usec_end){
 	return (sec_end + (double) usec_end/1000000) - (sec_ini + (double) usec_ini/1000000);
@@ -15,8 +18,8 @@ int main (int argc, char **argv) {
     char errstr[512];
 
     // Parse the command line.
-    if (argc != 4) {
-        g_error("Usage: %s configFile.ini fileName.txt num_msgs (default 0)", argv[0]);
+    if (argc != 3) {
+        g_error("Usage: %s configFile.ini fileName.txt", argv[0]);
         return 1;
     }
 
@@ -82,11 +85,7 @@ int main (int argc, char **argv) {
     rd_kafka_topic_partition_list_destroy(subscription);
 
     
-    FILE *names = fopen(argv[2], "r");
-
-    int message_count = atoi(argv[3]);
-
-    message_count = (!message_count) ? 1 : message_count;
+    FILE *names = fopen(argv[2], "r");    
 
   	if(!names){
         g_error("Can't onpen the file: %s", argv[2]);
@@ -98,14 +97,19 @@ int main (int argc, char **argv) {
     unsigned long long int file_size = ftell(names);
     fseek(names, 0, SEEK_SET);
 
+    int message_count = ceil(file_size/MSG_LIMIT);
+
+    message_count = (!message_count) ? 1 : message_count;
+
     struct timeval total_ini, total_end;
     unsigned long long int n = 0, n_l_six = 0, n_g_six = 0, pos_ant = 0;
 
     const char *topic = "names-count";
     const char *key =  "msg";
 
+    unsigned long long int i;
     gettimeofday(&total_ini, NULL);
-    for (unsigned long long int i = 0; i < message_count; i++) {
+    for (i = 1; i <= message_count && !feof(names); i++) {
 
         //Divide o arquivo conforme a quantidade de msgs
         // TO DO: resolver o problema do lixo de memória em msg vazias
@@ -151,19 +155,21 @@ int main (int argc, char **argv) {
             g_error("Failed to produce to topic %s: %s", topic, rd_kafka_err2str(err));
             return 1;
         } else {
-            g_message("Produced event to topic %s: mensage %llu sent!", topic, i+1);
+            //g_message("Produced event to topic %s: mensage %llu sent!", topic, i);
         }
 
         rd_kafka_poll(producer, 0);
     }
 
-    for(int i = 0; i < message_count; ){
+    if(i>message_count) i--;
+
+    for(int j = 1; j <= i; ){
         rd_kafka_message_t *response;
 
         response = rd_kafka_consumer_poll(solver, 500);
 
         if (!response){
-            g_message("Waiting Response...");
+            //g_message("Waiting Response...");
             continue;
         }
 
@@ -177,11 +183,12 @@ int main (int argc, char **argv) {
                 return 1;
             }
         } else {
+            //g_message("Response %d received", j);
             int *res = response->payload;
             n += res[0];
             n_l_six += res[1];
             n_g_six += res[2];
-            i++;
+            j++;
         }
 
         // Free the message when we're done.
